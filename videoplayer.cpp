@@ -52,6 +52,7 @@
 using namespace std;
 
 string v_url; // video URL for our use
+uint64_t v_dur; // video duration
 
 VideoPlayer::VideoPlayer(QWidget *parent)
     : QWidget(parent)
@@ -178,14 +179,15 @@ void VideoPlayer::mediaStateChanged(QMediaPlayer::State state)
 
 void VideoPlayer::positionChanged(qint64 position)
 {
-    printf("\nPosition is: %lld", position);
     positionSlider->setValue(position);
 }
 
 void VideoPlayer::durationChanged(qint64 duration)
 {
-    printf("\nDuration is: %lld", duration);
     positionSlider->setRange(0, duration);
+
+    // Set the video duration
+    v_dur = positionSlider->maximum() / 1000;
 }
 
 void VideoPlayer::setPosition(int position)
@@ -213,7 +215,7 @@ void VideoPlayer::on_pushButton_clicked()
         FILE *fh;
         char const *hyp;
         int16 buf[512];
-        int rv;
+
         int32 score;
         ps_seg_t *seg;
         const char *segWord;
@@ -227,42 +229,37 @@ void VideoPlayer::on_pushButton_clicked()
         if (!config) {
             fprintf(stderr, "Failed to create config object, see log for details\n");
             return;
-            //return -1;
         }
 
         ps = ps_init(config);
         if (!ps) {
             fprintf(stderr, "Failed to create recognizer, see log for details\n");
             return;
-            //return -1;
         }
 
-        char* ffmpegCommand;
-        sprintf(ffmpegCommand, "./avconv -i %s -ar 16000 -ac 1 tmp.wav", v_url.c_str());
-        system(ffmpegCommand);
+        string avconvCommand = "./avconv -i " + v_url + " -ar 16000 -ac 1 tmp.wav";
+        system(avconvCommand.c_str());
         fh = fopen("tmp.wav", "rb");
         if (!fh) {
             fprintf(stderr, "Unable to open file\n");
-            ps_decoder_t *ps = nullptr;
             return;
-            //return -1;
         }
 
         // Start decoding of the speech
         // Set to hot word listening mode
         ps_set_keyphrase(ps, "keyphrase_search", "box");
         ps_set_search(ps, "keyphrase_search");
-        rv = ps_start_utt(ps);
+        ps_start_utt(ps);
 
 
         // Read 512 samples at a time and feed them to the decoder
         while (!feof(fh)) {
             size_t nsamp = fread(buf, 2, 512, fh);
-            rv = ps_process_raw(ps, buf, nsamp, FALSE, FALSE);
+            ps_process_raw(ps, buf, nsamp, FALSE, FALSE);
         }
 
         // Mark end of utterance
-        rv = ps_end_utt(ps);
+        ps_end_utt(ps);
 
         seg = ps_seg_iter(ps);
         frameRate = cmd_ln_int32_r(config, "-frate");
@@ -272,8 +269,9 @@ void VideoPlayer::on_pushButton_clicked()
             segWord = ps_seg_word(seg);
             ps_seg_frames(seg, &startFrame, &endFrame);
             // The time computation is not exactly accurate, it's off by a few seconds
-            int startTime = (startFrame / frameRate) - 126; // 126 is the length of the file
-            int endTime = (endFrame / frameRate) - 126;
+            cout << "Duration is " << v_dur << endl;
+            int startTime = (startFrame / frameRate) - v_dur;
+            int endTime = (endFrame / frameRate) - v_dur;
             printf("Found %s at time: %d-%d seconds\n\n\n", segWord, startTime, endTime);
 
             // Set the textbox
