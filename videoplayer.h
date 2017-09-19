@@ -84,6 +84,7 @@ private:
     QSlider *positionSlider;
     QLabel *errorLabel;
     QLabel *l1;
+    QTextEdit *t1;
     QPlainTextEdit *userInput;
 };
 

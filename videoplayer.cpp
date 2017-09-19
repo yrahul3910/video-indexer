@@ -53,6 +53,8 @@ using namespace std;
 
 string v_url; // video URL for our use
 uint64_t v_dur; // video duration
+int v_min;
+int v_sec;
 
 VideoPlayer::VideoPlayer(QWidget *parent)
     : QWidget(parent)
@@ -62,6 +64,7 @@ VideoPlayer::VideoPlayer(QWidget *parent)
     , positionSlider(0)
     , errorLabel(0)
     , l1(0)
+    , t1(0)
     , userInput(0)
 {
     QVideoWidget *videoWidget = new QVideoWidget;
@@ -94,11 +97,14 @@ VideoPlayer::VideoPlayer(QWidget *parent)
     l1 = new QLabel;
     l1->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum);
 
+    t1 = new QTextEdit;
+
     QBoxLayout *controlLayout = new QHBoxLayout;
     controlLayout->setMargin(0);
     controlLayout->addWidget(openButton);
     controlLayout->addWidget(playButton);
     controlLayout->addWidget(positionSlider);
+    controlLayout->addWidget(l1);
     /*controlLayout->addWidget(userInput);
     controlLayout->addWidget(searchButton);*/
 
@@ -112,7 +118,8 @@ VideoPlayer::VideoPlayer(QWidget *parent)
     layout->addLayout(controlLayout);
     layout->addLayout(controlLayout1);
     layout->addWidget(errorLabel);
-    layout->addWidget(l1);
+    //layout->addWidget(l1);
+    layout->addWidget(t1);
 
     setLayout(layout);
 
@@ -180,6 +187,12 @@ void VideoPlayer::mediaStateChanged(QMediaPlayer::State state)
 void VideoPlayer::positionChanged(qint64 position)
 {
     positionSlider->setValue(position);
+    int pos = (positionSlider->sliderPosition())/1000;
+    v_min = (int)(pos/60);
+    v_sec = (int)(pos%60);
+    string op = std::to_string(v_min) + " : " + std::to_string(v_sec);
+    QString qs = op.c_str();
+    l1->setText(qs);
 }
 
 void VideoPlayer::durationChanged(qint64 duration)
@@ -210,6 +223,7 @@ void VideoPlayer::handleError()
 
 void VideoPlayer::on_pushButton_clicked()
 {
+    string hotword = userInput->toPlainText().toStdString();
     ps_decoder_t *ps = nullptr;
         cmd_ln_t *config = nullptr;
         FILE *fh;
@@ -247,7 +261,7 @@ void VideoPlayer::on_pushButton_clicked()
 
         // Start decoding of the speech
         // Set to hot word listening mode
-        ps_set_keyphrase(ps, "keyphrase_search", "box");
+        ps_set_keyphrase(ps, "keyphrase_search", hotword.c_str());
         ps_set_search(ps, "keyphrase_search");
         ps_start_utt(ps);
 
@@ -264,7 +278,7 @@ void VideoPlayer::on_pushButton_clicked()
         seg = ps_seg_iter(ps);
         frameRate = cmd_ln_int32_r(config, "-frate");
         printf("Frame rate is %d\n", frameRate);
-
+        t1->setText("");
         while (seg) {
             segWord = ps_seg_word(seg);
             ps_seg_frames(seg, &startFrame, &endFrame);
@@ -273,11 +287,14 @@ void VideoPlayer::on_pushButton_clicked()
             int startTime = (startFrame / frameRate) - v_dur;
             int endTime = (endFrame / frameRate) - v_dur;
             printf("Found %s at time: %d-%d seconds\n\n\n", segWord, startTime, endTime);
-
+            int c_startTime_min = (int)startTime/60;
+            int c_startTime_sec = (int)startTime%60;
             // Set the textbox
-            string op = "Time 1 = " + std::to_string(startTime) + "\nTime 2 = " + std::to_string(endTime);
+            //string op = "Time 1 = " + std::to_string(startTime) + "\nTime 2 = " + std::to_string(endTime);
+            string op = "Time = " + std::to_string(c_startTime_min) + " : " + std::to_string(c_startTime_sec);
             QString qs = op.c_str();
-            l1->setText(qs);
+            //l1->setText(qs);
+            t1->append(qs);
 
             seg = ps_seg_next(seg);
         }
