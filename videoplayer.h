@@ -38,46 +38,53 @@
 **
 ****************************************************************************/
 
-#include "videoplayer.h"
+#ifndef VIDEOPLAYER_H
+#define VIDEOPLAYER_H
 
-#include <QtWidgets/QApplication>
-#include <QtWidgets/QDesktopWidget>
-#include <QtCore/QCommandLineParser>
-#include <QtCore/QCommandLineOption>
-#include <QtCore/QDir>
-#include <pocketsphinx.h>
+#include <qmediaplayer.h>
 
-int main(int argc, char *argv[])
+#include <QtGui/QMovie>
+#include <QtWidgets/QWidget>
+#include <QPlainTextEdit>
+QT_BEGIN_NAMESPACE
+class QAbstractButton;
+class QSlider;
+class QLabel;
+class QUrl;
+class QPlainTextEdit;
+QT_END_NAMESPACE
+
+class VideoPlayer : public QWidget
 {
-    QApplication app(argc, argv);
+    Q_OBJECT
+public:
+    VideoPlayer(QWidget *parent = 0);
+    ~VideoPlayer();
 
-    QCoreApplication::setApplicationName("Video Widget Example");
-    QCoreApplication::setOrganizationName("QtProject");
-    QGuiApplication::setApplicationDisplayName(QCoreApplication::applicationName());
-    QCoreApplication::setApplicationVersion(QT_VERSION_STR);
-    QCommandLineParser parser;
-    parser.setApplicationDescription("Qt Video Widget Example");
-    parser.addHelpOption();
-    parser.addVersionOption();
-    parser.addPositionalArgument("url", "The URL to open.");
-    parser.process(app);
+    void setUrl(const QUrl &url);
+    //void on_pushButton_clicked();
 
-    VideoPlayer player;
-    if (!parser.positionalArguments().isEmpty()) {
-        const QUrl url =
-            QUrl::fromUserInput(parser.positionalArguments().constFirst(),
-                                QDir::currentPath(), QUrl::AssumeLocalFile);
-        player.setUrl(url);
-    }
+public slots:
+    void openFile();
+    void play();
 
-    const QRect availableGeometry = QApplication::desktop()->availableGeometry(&player);
-    player.resize(availableGeometry.width() / 6, availableGeometry.height() / 4);
-    player.show();
+private slots:
+    void mediaStateChanged(QMediaPlayer::State state);
+    void positionChanged(qint64 position);
+    void durationChanged(qint64 duration);
+    void on_pushButton_clicked();
+    //int calc();
+    void setPosition(int position);
+    void handleError();
 
-    return app.exec();
-}
+private:
+    QMediaPlayer mediaPlayer;
+    QAbstractButton *playButton;
+    QAbstractButton *searchButton;
+    QSlider *positionSlider;
+    QLabel *errorLabel;
+    QLabel *l1;
+    QPlainTextEdit *userInput;
+};
 
-int f1()
-{
-
-}
+#endif
